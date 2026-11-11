@@ -1,0 +1,23 @@
+# ghost-box tor daemon configuration
+# the onion service has no socks port - it only serves
+# the hidden service and talks to the submission api over the cluster network
+SocksPort 0
+
+# everything tor writes - keys, state, lock file - stays in the pod's
+# /dev/shm tmpfs (world-writable by default, dies with the pod)
+DataDir /dev/shm/tor
+
+# scrub everything identifiable from logs
+SafeLogging 1
+Log notice stdout
+
+# this tor only serves the hidden service - no need to cache directory
+# documents for anyone else
+DirCache 0
+
+# v3 onion service - ephemeral by design:
+# the private key lives on the tmpfs volume, so every pod restart
+# publishes a brand new address. there is nothing to subpoena.
+HiddenServiceDir /dev/shm/tor/hs/
+HiddenServicePort 80 submission-api.ghost-box.svc.cluster.local:80
+HiddenServiceVersion 3
