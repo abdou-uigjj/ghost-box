@@ -1,0 +1,21 @@
+# example backend + variables for the ghost-box cluster.
+# copy to terraform.tfvars and adjust before the first apply.
+
+# backend "s3" {
+#   bucket         = "YOUR-STATE-BUCKET"
+#   key            = "ghost-box/terraform.tfstate"
+#   region         = "eu-central-1"
+#   encrypt        = true
+#   kms_key_id     = "alias/terraform-state"
+#   dynamodb_table = "terraform-locks"
+# }
+
+# cluster_name         = "ghost-box"
+# aws_region           = "eu-central-1"
+# vpc_cidr             = "10.66.0.0/16"
+# az_count             = 2
+# admin_cidr           = "10.200.0.0/16" # your vpn / bastion network
+# node_instance_type   = "m6i.large"
+# node_min             = 1
+# node_max             = 3
+# node_disk_size       = 20
