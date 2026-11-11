@@ -1,0 +1,9 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ghost-box
+networking:
+  # calico replaces the default cni, so kind must not install kindnet
+  disableDefaultCNI: true
+  podSubnet: 10.244.0.0/16
+nodes:
+  - role: control-plane
