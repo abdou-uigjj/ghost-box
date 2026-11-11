@@ -1,0 +1,74 @@
+---
+# tor daemon publishing the onion service.
+# its keys and state live in the container's own /dev/shm tmpfs:
+# restart the pod and the address burns. no volumes at all.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tor-config
+  namespace: ghost-box
+data:
+  torrc: |
+    SocksPort 0
+    DataDir /dev/shm/tor
+    SafeLogging 1
+    Log notice stdout
+    DirCache 0
+    HiddenServiceDir /dev/shm/tor/hs/
+    HiddenServicePort 80 submission-api.ghost-box.svc.cluster.local:80
+    HiddenServiceVersion 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tor
+  namespace: ghost-box
+  labels:
+    app: tor
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: tor
+  template:
+    metadata:
+      labels:
+        app: tor
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 10
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10002
+        runAsGroup: 10002
+        fsGroup: 10002
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: tor
+          image: ghcr.io/abdou-uigjj/ghost-box-tor:v1.0.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/tor
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: tor-config

@@ -1,0 +1,47 @@
+---
+# the single allowed path into the submission api: traffic that arrived
+# over the tor network and left the tor pod. every other source is dropped
+# on the floor by default-deny-all.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tor-to-api
+  namespace: ghost-box
+spec:
+  podSelector:
+    matchLabels:
+      app: submission-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: tor
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# tor egress: relays live on random high ports across the internet,
+# so the honest policy is "out to the world, never back into the cluster".
+# private ranges are excluded so the tor pod can never be used to pivot
+# into internal networks.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tor-egress
+  namespace: ghost-box
+spec:
+  podSelector:
+    matchLabels:
+      app: tor
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16

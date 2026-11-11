@@ -1,0 +1,90 @@
+---
+# the submission api holds ciphertext in tmpfs and nothing else.
+# no volume claims, no host mounts, no writable root filesystem.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: submission-api
+  namespace: ghost-box
+  labels:
+    app: submission-api
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: submission-api
+  template:
+    metadata:
+      labels:
+        app: submission-api
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 0
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: ghcr.io/abdou-uigjj/ghost-box-api:v1.0.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          env:
+            - name: GB_SUBMIT_DIR
+              value: /dev/shm/submissions
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: ram
+              mountPath: /dev/shm
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: ram
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: submission-api
+  namespace: ghost-box
+spec:
+  type: ClusterIP
+  selector:
+    app: submission-api
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http

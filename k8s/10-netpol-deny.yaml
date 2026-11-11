@@ -1,0 +1,13 @@
+---
+# zero trust: nothing may enter or leave the ghost-box namespace
+# except what the other policies in this directory explicitly allow
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: ghost-box
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
