@@ -1,0 +1,24 @@
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+terraform.tfvars
+*.auto.tfvars
+
+# keys - never commit these
+*.key
+*.pem
+ghost-box.key
+
+# local artifacts
+/tmp/
+*.log
+.DS_Store
