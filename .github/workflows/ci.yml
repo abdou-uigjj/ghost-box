@@ -75,8 +75,8 @@ jobs:
 
       - name: load images + deploy
         run: |
-          kind load docker-image ghcr.io/abdou-uigjj/ghost-box-api:v1.0.0
-          kind load docker-image ghcr.io/abdou-uigjj/ghost-box-tor:v1.0.0
+          kind load docker-image --name ghost-box ghcr.io/abdou-uigjj/ghost-box-api:v1.0.0
+          kind load docker-image --name ghost-box ghcr.io/abdou-uigjj/ghost-box-tor:v1.0.0
           kubectl apply -f k8s/
           kubectl -n ghost-box wait --for=condition=ready pod -l app=api --timeout=180s
           kubectl -n ghost-box wait --for=condition=ready pod -l app=tor --timeout=180s
