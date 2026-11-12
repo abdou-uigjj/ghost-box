@@ -235,24 +235,37 @@ print(f"sealed {len(ct)} bytes")
 PY
 kubectl -n "$NS" port-forward deploy/submission-api 18443:8080 >/dev/null 2>&1 &
 PF_PID=$!
-sleep 2
-RESP="$(curl -s -m 15 --data-binary @"$WORK/sealed.bin" \
-    -H 'Content-Type: application/octet-stream' http://127.0.0.1:18443/submit || true)"
-kill "$PF_PID" 2>/dev/null || true
-if ! echo "$RESP" | grep -q '"accepted"'; then
-    bad 11 "sealed submission failed: '$RESP'"
+# wait until the tunnel actually listens - a fixed sleep races
+PF_UP=0
+for _ in $(seq 1 30); do
+    if curl -s -m 2 -o /dev/null "http://127.0.0.1:18443/"; then
+        PF_UP=1
+        break
+    fi
+    sleep 0.5
+done
+if [ "$PF_UP" -eq 0 ]; then
+    kill "$PF_PID" 2>/dev/null || true
+    bad 11 "port-forward never came up - sealed submission not attempted"
 else
-    FOUND=0
-    for pod in $(kubectl -n "$NS" get pod -l app=submission-api -o jsonpath='{.items[*].metadata.name}'); do
-        if kubectl -n "$NS" exec "$pod" -- sh -c \
-            "grep -rl '$MARKER_CIPHER' /dev/shm/submissions 2>/dev/null" | grep -q .; then
-            FOUND=1
-        fi
-    done
-    if [ "$FOUND" -eq 0 ]; then
-        ok 11 "sealed-box accepted and plaintext marker absent from storage"
+    RESP="$(curl -s -m 15 --data-binary @"$WORK/sealed.bin" \
+        -H 'Content-Type: application/octet-stream' http://127.0.0.1:18443/submit || true)"
+    kill "$PF_PID" 2>/dev/null || true
+    if ! echo "$RESP" | grep -q '"accepted"'; then
+        bad 11 "sealed submission failed: '$RESP'"
     else
-        bad 11 "PLAINTEXT FOUND in storage - client-side encryption is broken"
+        FOUND=0
+        for pod in $(kubectl -n "$NS" get pod -l app=submission-api -o jsonpath='{.items[*].metadata.name}'); do
+            if kubectl -n "$NS" exec "$pod" -- sh -c \
+                "grep -rl '$MARKER_CIPHER' /dev/shm/submissions 2>/dev/null" | grep -q .; then
+                FOUND=1
+            fi
+        done
+        if [ "$FOUND" -eq 0 ]; then
+            ok 11 "sealed-box accepted and plaintext marker absent from storage"
+        else
+            bad 11 "PLAINTEXT FOUND in storage - client-side encryption is broken"
+        fi
     fi
 fi
 
