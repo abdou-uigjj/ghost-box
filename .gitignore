@@ -22,3 +22,6 @@ ghost-box.key
 /tmp/
 *.log
 .DS_Store
+
+# release artifacts
+/release/
