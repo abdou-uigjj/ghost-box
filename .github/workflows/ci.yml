@@ -84,9 +84,9 @@ jobs:
         run: bash tests/kind-proof.sh
 
       - name: trivy scan (tor image, critical, unfixed ignored)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: ghcr.io/abdou-uigjj/ghost-box-tor:v1.0.0
-          severity: CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
+        run: |
+          curl -sSL -o /tmp/trivy.tgz \
+            https://github.com/aquasecurity/trivy/releases/download/v0.58.1/trivy_0.58.1_Linux-64bit.tar.gz
+          tar -xzf /tmp/trivy.tgz -C /tmp trivy
+          /tmp/trivy image --severity CRITICAL --ignore-unfixed --exit-code 1 \
+            ghcr.io/abdou-uigjj/ghost-box-tor:v1.0.0
