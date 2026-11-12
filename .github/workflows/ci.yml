@@ -90,7 +90,7 @@ jobs:
       - name: trivy scan (tor image, critical, unfixed ignored)
         run: |
           curl -sSL -o /tmp/trivy.tgz \
-            https://github.com/aquasecurity/trivy/releases/download/v0.58.1/trivy_0.58.1_Linux-64bit.tar.gz
+            https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_Linux-64bit.tar.gz
           tar -xzf /tmp/trivy.tgz -C /tmp trivy
           /tmp/trivy image --severity CRITICAL --ignore-unfixed --exit-code 1 \
             ghcr.io/abdou-uigjj/ghost-box-tor:v1.0.0
