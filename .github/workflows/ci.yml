@@ -1,0 +1,92 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: yaml lint
+        run: |
+          pip install yamllint
+          yamllint k8s/ .github/ tests/kind-config.yaml
+
+      - name: shell lint
+        run: shellcheck tests/local-smoke.sh tests/kind-proof.sh
+
+      - name: conftest policies
+        run: |
+          curl -sSL -o /tmp/conftest.tgz https://github.com/open-policy-agent/conftest/releases/download/v0.56.0/conftest_0.56.0_Linux_x86_64.tar.gz
+          tar -xzf /tmp/conftest.tgz -C /tmp conftest
+          /tmp/conftest test k8s/ --policy policy/
+
+      - name: terraform fmt
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+      - run: cd terraform && terraform fmt -check -recursive
+      - run: cd terraform && terraform init -backend=false && terraform validate
+
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install deps
+        run: pip install -r client/requirements.txt pytest
+      - name: unit tests
+        run: python3 -m pytest tests/test_submission_api.py -q
+      - name: local smoke proof
+        run: bash tests/local-smoke.sh
+
+  proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install kind + kubectl
+        run: |
+          curl -sSL -o kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
+          chmod +x kind && sudo mv kind /usr/local/bin/kind
+          curl -sSL -o kubectl https://dl.k8s.io/release/v1.31.2/bin/linux/amd64/kubectl
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/kubectl
+
+      - name: build images
+        run: |
+          docker build -t ghcr.io/abdou-uigjj/ghost-box-api:v1.0.0 app/
+          docker build -t ghcr.io/abdou-uigjj/ghost-box-tor:v1.0.0 tor/
+
+      - name: create cluster + calico
+        run: |
+          kind create cluster --config tests/kind-config.yaml
+          kubectl -n kube-system delete ds kindnet --ignore-not-found
+          curl -sSL https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml \
+            | sed 's?192\.168\.0\.0/16?10.244.0.0/16?g' | kubectl apply -f -
+          kubectl -n kube-system wait --for=condition=ready pod -l k8s-app=calico-node --timeout=300s
+
+      - name: load images + deploy
+        run: |
+          kind load docker-image ghcr.io/abdou-uigjj/ghost-box-api:v1.0.0
+          kind load docker-image ghcr.io/abdou-uigjj/ghost-box-tor:v1.0.0
+          kubectl apply -f k8s/
+          kubectl -n ghost-box wait --for=condition=ready pod -l app=api --timeout=180s
+          kubectl -n ghost-box wait --for=condition=ready pod -l app=tor --timeout=180s
+
+      - name: 14-assertion cluster proof
+        run: bash tests/kind-proof.sh
+
+      - name: trivy scan (tor image, critical, unfixed ignored)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/abdou-uigjj/ghost-box-tor:v1.0.0
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
