@@ -38,6 +38,19 @@ spec:
   policyTypes:
     - Egress
   egress:
+    # the one in-cluster path that must survive the private-range wall:
+    # tor -> submission api. without this the egress rule below would
+    # block it, since pod ips sit inside 10.0.0.0/8.
+    - to:
+        - podSelector:
+            matchLabels:
+              app: submission-api
+      ports:
+        - protocol: TCP
+          port: 8080
+    # out to the tor network. relays live on random high ports across
+    # the internet, so the honest policy is "out to the world, never
+    # back into private networks".
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
