@@ -52,6 +52,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: install client deps for the proof (pynacl for sealing)
+        run: pip install -r client/requirements.txt
+
       - name: install kind + kubectl
         run: |
           curl -sSL -o kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
