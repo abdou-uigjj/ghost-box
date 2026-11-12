@@ -78,8 +78,8 @@ jobs:
           kind load docker-image --name ghost-box ghcr.io/abdou-uigjj/ghost-box-api:v1.0.0
           kind load docker-image --name ghost-box ghcr.io/abdou-uigjj/ghost-box-tor:v1.0.0
           kubectl apply -f k8s/
-          kubectl -n ghost-box wait --for=condition=ready pod -l app=api --timeout=180s
-          kubectl -n ghost-box wait --for=condition=ready pod -l app=tor --timeout=180s
+          kubectl -n ghost-box rollout status deploy/submission-api --timeout=180s
+          kubectl -n ghost-box rollout status deploy/tor --timeout=180s
 
       - name: 14-assertion cluster proof
         run: bash tests/kind-proof.sh
